@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure App Access</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .lock-screen {
+            text-align: center;
+        }
+        
+        .lock-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: #ffdd00;
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .time-left {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #ffdd00;
+            color: #1a2a6c;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: #ffc400;
+            transform: translateY(-2px);
+        }
+        
+        .app-content {
+            display: none;
+            text-align: center;
+        }
+        
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .time-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .app-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .app-box {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 25px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .app-box:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-5px);
+        }
+        
+        .app-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+        
+        .app-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .app-desc {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .error-message {
+            color: #ff6b6b;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+        
+        .webview-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 1000;
+        }
+        
+        .webview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #1a2a6c;
+            color: white;
+        }
+        
+        .webview-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .close-webview {
+            background: #ff6b6b;
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        iframe {
+            width: 100%;
+            height: calc(100% - 50px);
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="lock-screen" id="lockScreen">
+            <div class="lock-icon">🔒</div>
+            <h1>Secure App Access</h1>
+            <div class="time-left" id="timeLeft">Enter password to unlock application</div>
+            
+            <div class="form-group">
+                <label for="password">Enter Password</label>
+                <input type="password" id="password" placeholder="Paste password here">
+            </div>
+            
+            <button id="unlockBtn">Unlock Application</button>
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+        
+        <div class="app-content" id="appContent">
+            <div class="app-header">
+                <div class="logo">Secure App</div>
+                <div class="time-display" id="accessTime">Access: 2 days left</div>
+            </div>
+            
+            <div class="app-grid">
+                <div class="app-box" onclick="openWebView('UPI BOMBER', 'https://mr-ags.fun/Bomb/upibomb.php')">
+                    <div class="app-icon">💸</div>
+                    <div class="app-title">UPI BOMBER</div>
+                    <div class="app-desc">Advanced UPI tool</div>
+                </div>
+                
+                <div class="app-box" onclick="openWebView('SMS & CALL BOMBER', 'https://mr-ags.fun/Bomb/')">
+                    <div class="app-icon">📱</div>
+                    <div class="app-title">SMS & CALL BOMBER</div>
+                    <div class="app-desc">Powerful communication tool</div>
+                </div>
+                
+                <div class="app-box" onclick="openWebView('OWNER BY SARKAR', 'https://youtube.com/@lofi_song_90s')">
+                    <div class="app-icon">👑</div>
+                    <div class="app-title">OWNER BY SARKAR</div>
+                    <div class="app-desc">Application owner</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="webview-container" id="webviewContainer">
+        <div class="webview-header">
+            <div class="webview-title" id="webviewTitle">Web View</div>
+            <button class="close-webview" onclick="closeWebView()">Close</button>
+        </div>
+        <iframe id="webviewFrame" src="about:blank"></iframe>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDummyKeyReplaceWithYourOwn",
+            authDomain: "password-admin-c1311.firebaseapp.com",
+            databaseURL: "https://password-admin-c1311-default-rtdb.firebaseio.com",
+            projectId: "password-admin-c1311",
+            storageBucket: "password-admin-c1311.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:dummyappid"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // DOM elements
+        const lockScreen = document.getElementById('lockScreen');
+        const appContent = document.getElementById('appContent');
+        const passwordInput = document.getElementById('password');
+        const unlockBtn = document.getElementById('unlockBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const timeLeft = document.getElementById('timeLeft');
+        const accessTime = document.getElementById('accessTime');
+        const webviewContainer = document.getElementById('webviewContainer');
+        const webviewTitle = document.getElementById('webviewTitle');
+        const webviewFrame = document.getElementById('webviewFrame');
+        
+        // Check if device has access
+        checkAccessStatus();
+        
+        // Unlock button event
+        unlockBtn.addEventListener('click', unlockApp);
+        
+        // Function to check access status
+        function checkAccessStatus() {
+            const deviceId = localStorage.getItem('deviceId');
+            const accessExpiry = localStorage.getItem('accessExpiry');
+            
+            if (deviceId && accessExpiry) {
+                const currentTime = new Date().getTime();
+                if (currentTime < parseInt(accessExpiry)) {
+                    // Still have access
+                    const timeLeftMs = parseInt(accessExpiry) - currentTime;
+                    updateTimeDisplay(timeLeftMs);
+                    unlockAppUI();
+                } else {
+                    // Access expired
+                    localStorage.removeItem('accessExpiry');
+                    timeLeft.textContent = "Your access has expired. Please enter a new password.";
+                }
+            }
+        }
+        
+        // Function to unlock app
+        function unlockApp() {
+            const password = passwordInput.value.trim();
+            if (!password) {
+                errorMessage.textContent = "Please enter a password";
+                return;
+            }
+            
+            errorMessage.textContent = "Verifying...";
+            
+            // Check password in Firebase
+            database.ref('passwords/').once('value')
+                .then(snapshot => {
+                    const passwords = snapshot.val();
+                    let validPassword = null;
+                    
+                    for (const key in passwords) {
+                        if (passwords[key].password === password && 
+                            passwords[key].isActive) {
+                            validPassword = passwords[key];
+                            break;
+                        }
+                    }
+                    
+                    if (validPassword) {
+                        // Check if password is already used by another device
+                        if (validPassword.usedBy && validPassword.usedBy !== getDeviceId()) {
+                            errorMessage.textContent = "This password is already used on another device";
+                            return;
+                        }
+                        
+                        // Calculate expiry time
+                        const expiryTime = new Date().getTime() + (validPassword.duration * 60 * 1000);
+                        
+                        // Store access info
+                        localStorage.setItem('accessExpiry', expiryTime.toString());
+                        
+                        // Mark password as used by this device
+                        database.ref('passwords/' + validPassword.id).update({
+                            usedBy: getDeviceId()
+                        });
+                        
+                        // Update UI
+                        updateTimeDisplay(validPassword.duration * 60 * 1000);
+                        unlockAppUI();
+                        errorMessage.textContent = "";
+                    } else {
+                        errorMessage.textContent = "Invalid or expired password";
+                    }
+                })
+                .catch(error => {
+                    errorMessage.textContent = "Connection error. Please try again.";
+                    console.error("Firebase error:", error);
+                });
+        }
+        
+        // Function to generate a device ID
+        function getDeviceId() {
+            let deviceId = localStorage.getItem('deviceId');
+            if (!deviceId) {
+                deviceId = 'device-' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('deviceId', deviceId);
+            }
+            return deviceId;
+        }
+        
+        // Function to update time display
+        function updateTimeDisplay(timeMs) {
+            const days = Math.floor(timeMs / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeMs % (1000 * 60 * 60)) / (1000 * 60));
+            
+            if (days > 0) {
+                timeLeft.textContent = `Access valid for: ${days} days, ${hours} hours`;
+                accessTime.textContent = `Access: ${days} days left`;
+            } else if (hours > 0) {
+                timeLeft.textContent = `Access valid for: ${hours} hours, ${minutes} minutes`;
+                accessTime.textContent = `Access: ${hours} hours left`;
+            } else {
+                timeLeft.textContent = `Access valid for: ${minutes} minutes`;
+                accessTime.textContent = `Access: ${minutes} minutes left`;
+            }
+            
+            // Update countdown every minute
+            if (timeMs > 0) {
+                setTimeout(() => {
+                    updateTimeDisplay(timeMs - 60000);
+                }, 60000);
+            }
+        }
+        
+        // Function to unlock the UI
+        function unlockAppUI() {
+            lockScreen.style.display = 'none';
+            appContent.style.display = 'block';
+        }
+        
+        // Function to open webview
+        function openWebView(title, url) {
+            webviewTitle.textContent = title;
+            webviewFrame.src = url;
+            webviewContainer.style.display = 'block';
+        }
+        
+        // Function to close webview
+        function closeWebView() {
+            webviewContainer.style.display = 'none';
+            webviewFrame.src = 'about:blank';
+        }
+    </script>
+</body>
+</html>
